@@ -302,4 +302,4 @@ else:  # "Zahlungsreihe (NPV / FV)"
 
 
 st.markdown("---")
-st.caption("© 2025 – Beispiel für eine Streamlit-App mit dynamischer Visualisierung.")
+st.caption("© 2025 – Workaround, weil ich keine Lust habe Brüche in einen Taschenrechner zu tippen... :D")
