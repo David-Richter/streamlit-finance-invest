@@ -83,6 +83,46 @@ def payback_period(a0: float, annual_return: float) -> float:
         return float("inf")
     return a0 / annual_return
 
+def capital_value(a0: float, future_flows: list[float], i: float) -> float:
+    """
+    Berechnet den Kapitalwert einer Investition gemäß:
+    
+        C0 = -a0 + sum( c_t / (1 + i)^t ),  für t = 1..n
+    
+    Hier:
+      a0           Anfangsauszahlung (positiver Wert)
+      future_flows Liste der erwarteten Einzahlungen c_t für t=1..n (oder Ein-/Auszahlungen)
+      i            Kalkulationszinssatz (Dezimal, z.B. 0.06)
+    
+    Rückgabewert: Kapitalwert C0
+    """
+    npv = -a0  # anfängliche Ausgabe
+    for t, cf in enumerate(future_flows, start=1):
+        npv += cf / ((1 + i)**t)
+    return npv
+
+def plot_investment_flows(a0: float, c_flows: list[float]):
+    """
+    Erzeugt ein kleines Balkendiagramm der gesamten Zahlungsreihe:
+      - t=0 => -a0 (Anschaffung)
+      - t=1..n => c_flows
+    """
+    data = []
+    # Periode 0: Anschaffung (negativer Cashflow)
+    data.append({"t": 0, "Zahlung": -a0})
+    
+    # Periode 1..n: future flows
+    for t, cf in enumerate(c_flows, start=1):
+        data.append({"t": t, "Zahlung": cf})
+
+    df = pd.DataFrame(data)
+    chart = alt.Chart(df).mark_bar().encode(
+        x=alt.X("t:O", title="Periode (t)"),
+        y=alt.Y("Zahlung:Q", title="Zahlung (Euro)"),
+        tooltip=["t", "Zahlung"]
+    ).properties(title="Zahlungsreihe (Investition)")
+    return chart
+
 ###############################################################################
 # Visualisierungen
 ###############################################################################
@@ -295,6 +335,7 @@ calc_choice = st.sidebar.radio(
         "Rentenhöhe aus Barwert / Endwert",
         "Zahlungsreihe (NPV / FV)",
         "Amortisationsdauer (statische Methode)",
+        "Kapitalwert",
         "Theoretisches Wissen"
     )
 )
@@ -536,13 +577,180 @@ elif calc_choice == "Amortisationsdauer (statische Methode)":
                 )
 
 ###############################################################################
-# Theoretisches Wissen
+# 5) Kapitalwert
 ###############################################################################
 
-# theory_choice = st.sidebar.radio(
-#     "Theoretisches Wissen:",
-#     ("Keine Anzeige", "Unterschied: Zahlung, Zahlungsreihe, Rente")
-# )
+# elif calc_choice == "Kapitalwert":
+
+#     """Abschnitt 'Kapitalwert' mit Erklärung und Eingabeformular."""
+#     st.header("Kapitalwert (C₀) einer Investition")
+
+#     st.markdown(r"""
+#     **Kurze Erklärung**  
+#     Der Kapitalwert \( C_0 \) (auch **Nettobarwert**) bezeichnet den
+#     **Barwert** aller Ein‐ und Auszahlungen einer Investition zum
+#     Zeitpunkt \( t = 0 \).  
+#     Formal:
+#     \[
+#       C_0 = -a_0 \;+\; \sum_{t=1}^{n} \frac{c_t}{(1 + i)^t}
+#     \]
+#     wobei
+#     - \( a_0 \): Anfangsauszahlung (positiver Wert eingegeben, wird aber als Abfluss verbucht),
+#     - \( c_t \): erwarteter (Netto-)Cashflow in Periode \( t \) (Ein- oder Auszahlung),
+#     - \( i \): Kalkulationszinssatz (Opportunitätszins),
+#     - \( n \): Anzahl zukünftiger Perioden.  
+
+#     **Akzeptanzkriterium**:  
+#     - Wenn \(C_0 \ge 0\), ist die Investition vorteilhaft oder zumindest indifferent
+#       (im Vergleich zu einer Anlage am Kapitalmarkt).
+#     """)
+
+#     st.info("""
+#     **Hinweis**: In dieser Demo geben wir `a₀` als **positiven** Wert ein,
+#     obwohl es eigentlich ein **Abfluss** ist. Daher wird intern `-a₀` gebucht.
+#     """)
+
+#     # Eingabe-Widgets
+#     a0_val = st.number_input("Anschaffungsauszahlung a₀ (positiver Betrag)", value=1000.0, step=100.0)
+#     i_val = st.number_input("Kalkulationszinssatz i (z. B. 0.06)", value=0.06)
+    
+#     # Cashflows als Text (CSV) => parsen
+#     cflows_str = st.text_input("Zukünftige Cashflows c₁..cₙ (Komma-getrennt)", value="200, 300, 400")
+    
+#     if st.button("Kapitalwert berechnen"):
+#         future_flows = [float(x.strip()) for x in cflows_str.split(",")]
+    
+#         c0 = capital_value(a0_val, future_flows, i_val)
+#         st.success(f"Kapitalwert C₀ = {c0:,.2f} €")
+        
+#         # Optional: Diagramm der gesamten Zahlungsreihe
+#         chart = plot_investment_flows(a0_val, future_flows)
+#         st.altair_chart(chart, use_container_width=True)
+
+
+###############################################################################
+# X) Kapitalwert (Nettobarwert)
+###############################################################################
+elif calc_choice == "Kapitalwert":
+    def show_sympy_formula(expr, symbols_map: dict, result_label="Ergebnis", numeric=None):
+        """
+        Zeigt die allgemeine Formel, die Substitution und das numerische Ergebnis
+        in schöner LaTeX-Form an.
+        """
+        from sympy import latex
+
+        # 1) Symbolische Formel
+        st.markdown("**Allgemeine Formel**:")
+        st.latex(f"{result_label} = {latex(expr)}")
+        
+        # 2) Eingesetzte Werte
+        substituted_expr = expr.subs(symbols_map)
+        st.markdown("**Eingesetzte Werte in der Formel**:")
+        st.latex(f"{result_label} = {latex(substituted_expr)}")
+
+        # 3) Numerisches Ergebnis
+        if numeric is not None:
+            st.markdown("**Numerisches Ergebnis**:")
+            st.latex(f"{result_label} \\approx {numeric:,.2f}")
+
+
+    st.subheader("Kapitalwert (C₀) mit flexibler Zahlungsreihe")
+
+    st.markdown(r"""
+    **Kurze Erklärung**  
+    Der Kapitalwert \(C_0\) (auch Nettobarwert) bezeichnet den
+    Barwert sämtlicher Ein- und Auszahlungen einer Investition zum Zeitpunkt \(t = 0\).
+
+    Formel (flexible Anzahl an Zahlungen):
+    \[
+        C_0 = -a_0 \;+\; \sum_{t=1}^n \frac{c_t}{(1 + i)^t}.
+    \]
+
+    - \(a_0\): Anfangsauszahlung (positiver Wert eingegeben, wird als Abfluss verbucht)
+    - \(c_t\): erwarteter Cashflow in Periode \(t\)
+    - \(i\): Kalkulationszinssatz (dezimal, z.B. 0.06)
+    - \(n\): Anzahl zukünftiger Perioden (Länge der Liste)
+
+    **Akzeptanzkriterium**:  
+    - \(C_0 \ge 0\) ⇒ Investition ist vorteilhaft (oder mindestens genauso gut wie Alternativen).
+    """)
+
+    # Eingaben
+    a0_val = st.number_input("Anfangsauszahlung a₀ (positiv)", value=1000.0, step=100.0)
+    i_val  = st.number_input("Kalkulationszinssatz i (z.B. 0.06)", value=0.06)
+    
+    cflows_str = st.text_input(
+        "Zukünftige Zahlungen c₁, c₂, ... (Komma-getrennt)",
+        value="400,600,800"
+    )
+
+    if st.button("Kapitalwert berechnen"):
+        # 1) Liste der Cashflows parsen
+
+        future_flows = [float(x.strip()) for x in cflows_str.split(",")]
+
+        n = len(future_flows)
+        # 2) Symbolische Variablen definieren
+        #    a_0 und i definieren wir einzeln,
+        #    c_1..c_n werden dynamisch generiert:
+        a0Sym, iSym = sympy.symbols("a_0 i", positive=True)
+        # Erzeuge c1, c2, ..., cN
+        cSymbols = sympy.symbols(" ".join(f"c_{t}" for t in range(1, n+1)), real=True)
+
+        # 3) Kapitalwert-Formel dynamisch aufbauen
+        # Start mit -a_0
+        capital_value_expr = -a0Sym
+        # + sum( c_t / (1+i)^t ) 
+        for t in range(n):
+            capital_value_expr += cSymbols[t] / ((1 + iSym)**(t+1))
+
+        # 4) Dictionary für subs()
+        subs_map = {
+            a0Sym: a0_val,
+            iSym: i_val,
+        }
+        for t, cf in enumerate(future_flows):
+            subs_map[cSymbols[t]] = cf
+
+        # 5) Symbolisch auswerten
+        c0_sympy = capital_value_expr.subs(subs_map)
+        c0_value = float(c0_sympy.evalf())
+
+        # 6) Schöne Ausgabe
+        show_sympy_formula(
+            expr=capital_value_expr,
+            symbols_map=subs_map,
+            result_label="C_0",
+            numeric=c0_value
+        )
+
+        st.success(f"Kapitalwert C₀ = {c0_value:,.2f} €")
+
+        # 7) Visualisierung der gesamten Zahlungsreihe (inkl. -a0 in Periode 0)
+        data = []
+        data.append({"Periode": 0, "Zahlung": -a0_val})
+        for idx, cf in enumerate(future_flows, start=1):
+            data.append({"Periode": idx, "Zahlung": cf})
+
+        df = pd.DataFrame(data)
+        chart = (
+            alt.Chart(df)
+            .mark_bar()
+            .encode(
+                x=alt.X("Periode:O"),
+                y=alt.Y("Zahlung:Q"),
+                tooltip=["Periode", "Zahlung"]
+            )
+            .properties(title="Zahlungsreihe")
+        )
+        st.altair_chart(chart, use_container_width=True)
+
+        st.info("Periode 0: Anschaffung (negativ), Periode 1..n: Rückflüsse.")
+
+
+###############################################################################
+# Theoretisches Wissen
+###############################################################################
 
 elif calc_choice == "Theoretisches Wissen":
     
