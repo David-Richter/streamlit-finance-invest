@@ -224,7 +224,8 @@ calc_choice = st.sidebar.radio(
         "Renten-Berechnungen (Bar- und Endwert)",
         "Rentenhöhe aus Barwert / Endwert",
         "Zahlungsreihe (NPV / FV)",
-        "Amortisationsdauer (statische Methode)"
+        "Amortisationsdauer (statische Methode)",
+        "Theoretisches Wissen"
     )
 )
 
@@ -432,7 +433,7 @@ elif calc_choice == "Zahlungsreihe (NPV / FV)":
 ###############################################################################
 # 5) Amortisationsdauer (statische Methode)
 ###############################################################################
-else:
+elif calc_choice == "Amortisationsdauer (statische Methode)":
     st.subheader("Statische Amortisationsdauer (Payback Period)")
 
     # Symbolische Formel: AD = a_0 / C
@@ -463,6 +464,38 @@ else:
                     "Die rote Linie markiert die Anfangsinvestition a₀. "
                     "Dort, wo die blaue Kurve sie schneidet, ist das 'Break Even'-Jahr."
                 )
+
+else:
+    #theory_choice == "Unterschied: Zahlung, Zahlungsreihe, Rente"
+    st.header("Theoretisches Wissen")
+    st.subheader("Was unterscheidet eine Zahlung, eine Zahlungsreihe und eine Rente?")
+
+    st.markdown("""
+    **1. Zahlung**  
+    Eine einzelne Transaktion (Cashflow) zu einem bestimmten Zeitpunkt.  
+    Beispiel: Eine Anschaffungszahlung von -500 € heute (t=0).
+
+    **2. Zahlungsreihe**  
+    Eine Folge mehrerer Zahlungen über die Zeit. Die einzelnen Beträge können
+    sich in Höhe und Vorzeichen unterscheiden.  
+    Beispiel:  
+    - t=0: -500 € (Investition)  
+    - t=1: +200 € (Rückfluss)  
+    - t=2: +300 €
+
+    **3. Rente**  
+    Eine _gleichförmige_ Zahlungsreihe, d. h. ein fester Betrag, der regelmäßig
+    (z. B. jährlich) gezahlt oder empfangen wird, meistens am Periodenende.
+    Beispiel: Jedes Jahr 1.000 € über n Jahre.  
+    """)
+
+    st.info("""
+    Zusammengefasst:  
+    - Eine *Zahlung* bezeichnet genau **eine** Transaktion (einmalig).  
+    - Eine *Zahlungsreihe* ist jede beliebige **Abfolge** mehrerer Zahlungen.  
+    - Eine *Rente* ist eine **gleichmäßige** Zahlungsreihe (feste Rate, konstantes Intervall).
+    """)
+    
 
 st.markdown("---")
 st.caption("© 2025 – Ausführliche Formeln, Variablen‐Erklärungen und Visualisierungen.")
