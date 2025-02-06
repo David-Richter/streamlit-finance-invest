@@ -3,6 +3,9 @@ import pandas as pd
 import altair as alt
 import math
 import sympy
+import numpy as np
+import matplotlib.pyplot as plt
+
 
 ###############################################################################
 # Finanzmathematische Funktionen (numerische Kernfunktionen)
@@ -135,6 +138,39 @@ def solve_irr(a0: float, cashflows: list[float]) -> float:
         return float(sol)
     except:
         return float("nan")
+
+def dynamic_amortization_time(a0, c, i):
+    """
+    Bestimmt die exakte dynamische Amortisationsdauer t' mit der Formel:
+       a0 = c * [((1 + i)^(t') - 1) / (i * (1 + i)^(t'))]
+    Aufgelöst nach t':
+       t' = ln( 1 / [1 - (a0 * i / c)] ) / ln(1 + i)
+
+    Parameter:
+    -----------
+    a0 : float
+        Anfangsauszahlung (positiver Betrag, z.B. 60 für -60 in t0).
+    c  : float
+        Konstante Einzahlungsüberschüsse (pro Periode).
+    i  : float
+        Kalkulationszinssatz (z.B. 0.06 für 6%).
+
+    Rückgabe:
+    ---------
+    float
+        Die exakte (ggf. nicht ganzzahlige) Amortisationsdauer t'.
+        Falls keine sinnvolle Lösung existiert, wird 'math.nan' zurückgegeben.
+    """
+    # Ausdruck umformen: a0 * i / c = 1 - (1 + i)^(-t')
+    # => (1 + i)^(-t') = 1 - (a0 * i / c)
+    # => Falls dieses 'alpha' <= 0 oder >= 1, gibt es keine reelle Lösung
+    alpha = 1 - (a0 * i / c)
+    if alpha <= 0 or alpha >= 1:
+        # Keine (positive) reelle Lösung für t'
+        return float('nan')
+
+    t_prime = math.log(1.0 / alpha) / math.log(1.0 + i)
+    return t_prime
 
 ###############################################################################
 # Visualisierungen
@@ -275,7 +311,6 @@ def visualize_cashflow_series(cashflows: list[float]):
     }).set_index("Jahr")
     return df
 
-
 def npv_for_rate(a0: float, cflows: list[float], rate: float) -> float:
     """
     Hilfsfunktion: Kapitalwert bei Zinssatz = rate
@@ -308,6 +343,50 @@ def plot_capital_value_curve(a0: float, cflows: list[float], max_rate: float = 0
     rule = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(color="red").encode(y="y")
 
     return (chart + rule).interactive()
+
+def plot_cumulative_discounted_flows(a0, c, i, max_periods=10):
+    """
+    Plottet den kumulierten Barwert der Rückflüsse bis zu `max_periods`.
+    So sieht man in welcher Periode der anfängliche Kapitaleinsatz 'a0' gedeckt ist.
+
+    Parameter:
+    ----------
+    a0 : float
+        Anfangsauszahlung (positiver Betrag)
+    c  : float
+        Konstante Rückflüsse pro Periode
+    i  : float
+        Zinssatz
+    max_periods : int
+        Anzahl Perioden, die in der Grafik betrachtet werden sollen
+    """
+    # Diskontierungsfaktor (1 + i)^(-t)
+    discounted_sum = 0.0
+    cumulated_values = []
+
+    # t läuft von 1 bis max_periods
+    for t in range(1, max_periods + 1):
+        # Barwert des Cashflows in Periode t
+        pv = c / ((1 + i) ** t)
+        discounted_sum += pv
+        cumulated_values.append(discounted_sum)
+
+    # Plot
+    plt.figure(figsize=(7,4), dpi=100)
+    periods = np.arange(1, max_periods + 1)
+
+    # Kumulierte diskontierte Rückflüsse als Kurve
+    plt.plot(periods, cumulated_values, marker='o', label='Kumulierte Barwerte')
+
+    # Horizontale Linie bei 'a0' => zeigt, wann Amortisation erreicht
+    plt.axhline(y=a0, color='r', linestyle='--', label='Anfangsauszahlung a0')
+
+    plt.title('Kumulierte diskontierte Rückflüsse vs. Anfangsauszahlung')
+    plt.xlabel('Periode t')
+    plt.ylabel('Kumulierte Barwerte')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 
 ###############################################################################
 # Erklärung der Variablennamen (für LaTeX-Ausgabe)
@@ -392,6 +471,7 @@ calc_choice = st.sidebar.radio(
         "Amortisationsdauer (statische Methode)",
         "Kapitalwert",
         "Interner Zinsfuß",
+        "Dynamische Amortisationsdauer",
         "Theoretisches Wissen"
     )
 )
@@ -917,6 +997,44 @@ elif calc_choice == "Interner Zinsfuß":
         Dort, wo die Kurve sie schneidet (C₀(i)=0), liegt der interne Zinsfuß r.
         """)
 
+
+###############################################################################
+# 7) Dynamische Amortisationsdauer
+###############################################################################
+
+elif calc_choice == "Dynamische Amortisationsdauer":
+    
+    st.subheader("Dynamische Amortisationsdauer")
+    # -------------------------
+    # 1) Variablen anpassen
+    # -------------------------
+    # a0 = 60.0  # Anfangsauszahlung (Beispiel: -60 in t0)
+    # c  = 14.0  # Konstante Einzahlungsüberschüsse
+    # i  = 0.06  # Kalkulationszinssatz (z.B. 6%)
+    # max_periods = 10  # Für die Visualisierung
+
+    # Eingaben:
+    a0 = st.number_input("Anfangsauszahlung a₀", value=60.0)
+    c  = st.number_input("Konstante Einzahlungsüberschüsse", value=14.0)  # Konstante Einzahlungsüberschüsse
+    i  = st.number_input("Kalkulationszinssatz (z.B. 6%)", value=0.06)  # Kalkulationszinssatz (z.B. 6%)
+    max_periods = st.number_input("Max. Perioden ", value=10)  # Für die Visualisierung
+
+
+    if st.button("IRR berechnen"):
+        # -------------------------
+        # 2) Dynamische Amortisationsdauer berechnen
+        # -------------------------
+        t_star = dynamic_amortization_time(a0, c, i)
+        if math.isnan(t_star):
+            st.warning("Keine reelle Lösung für die dynamische Amortisationsdauer (NaN).")
+        else:
+            st.success(f"Exakte dynamische Amortisationsdauer t' = {t_star:.3f} Perioden.")
+
+        # -------------------------
+        # 3) Visualisierung
+        # -------------------------
+        # chart = plot_cumulative_discounted_flows(a0, c, i, max_periods)
+        # st.altair_chart(chart, use_container_width=True)
 
 ###############################################################################
 # Theoretisches Wissen
