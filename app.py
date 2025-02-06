@@ -1,6 +1,3 @@
-###############################################################################
-# app.py
-###############################################################################
 import streamlit as st
 import pandas as pd
 import altair as alt
@@ -8,7 +5,7 @@ import math
 import sympy
 
 ###############################################################################
-# Finanzmathematische Funktionen (rein numerisch)
+# Finanzmathematische Funktionen (numerische Kernfunktionen)
 ###############################################################################
 def future_value(pv: float, i: float, n: int) -> float:
     """
@@ -86,14 +83,10 @@ def payback_period(a0: float, annual_return: float) -> float:
         return float("inf")
     return a0 / annual_return
 
-
 ###############################################################################
-# Hilfsfunktionen für Visualisierungen
+# Visualisierungen
 ###############################################################################
 def plot_payback(a0: float, annual_return: float):
-    """
-    Liniendiagramm zur kumulierten Rückflüsse bis zur Amortisation.
-    """
     ad = payback_period(a0, annual_return)
     max_year = math.ceil(ad) + 1
     
@@ -103,7 +96,6 @@ def plot_payback(a0: float, annual_return: float):
         data.append({"Jahr": t, "Kumulierte Rückflüsse": cum_return})
 
     df = pd.DataFrame(data)
-
     base_chart = alt.Chart(df).mark_line(point=True).encode(
         x=alt.X("Jahr:Q"),
         y=alt.Y("Kumulierte Rückflüsse:Q"),
@@ -111,14 +103,9 @@ def plot_payback(a0: float, annual_return: float):
     )
     rule = alt.Chart(pd.DataFrame({"y": [a0]})).mark_rule(color="red").encode(y="y")
 
-    chart = (base_chart + rule).interactive()
-    return chart
-
+    return (base_chart + rule).interactive()
 
 def visualize_single_payment_growth(pv: float, i: float, n: int):
-    """
-    DF für den jährlich wachsenden Wert einer Einmalzahlung pv bei Zinssatz i, bis Jahr n.
-    """
     values = []
     for year in range(n+1):
         val = pv * (1 + i)**year
@@ -126,14 +113,10 @@ def visualize_single_payment_growth(pv: float, i: float, n: int):
     df = pd.DataFrame({
         "Jahr": list(range(n+1)),
         "Wert": values
-    })
-    df.set_index("Jahr", inplace=True)
+    }).set_index("Jahr")
     return df
 
 def visualize_annuity_future(b: float, i: float, n: int):
-    """
-    DF: jährliche Fortschreibung einer Rente b bis zum Endwert nach n Jahren.
-    """
     q = 1 + i
     balance = 0.0
     timeline = []
@@ -141,14 +124,10 @@ def visualize_annuity_future(b: float, i: float, n: int):
         balance *= q
         balance += b
         timeline.append(balance)
-    df = pd.DataFrame({"Jahr": list(range(1, n+1)), "Saldo": timeline})
-    df.set_index("Jahr", inplace=True)
+    df = pd.DataFrame({"Jahr": list(range(1, n+1)), "Saldo": timeline}).set_index("Jahr")
     return df
 
 def visualize_annuity_present(b: float, i: float, n: int):
-    """
-    DF: kumulative Summe der diskontierten Rentenzahlungen.
-    """
     q = 1 + i
     timeline = []
     cumulative = 0.0
@@ -156,30 +135,86 @@ def visualize_annuity_present(b: float, i: float, n: int):
         discounted = b / (q**t)
         cumulative += discounted
         timeline.append(cumulative)
-    df = pd.DataFrame({"Jahr": list(range(1, n+1)), "kumul. Barwert": timeline})
-    df.set_index("Jahr", inplace=True)
+    df = pd.DataFrame({"Jahr": list(range(1, n+1)), "kumul. Barwert": timeline}).set_index("Jahr")
     return df
 
 def visualize_cashflow_series(cashflows: list[float]):
-    """
-    Balkendiagramm der Cashflows pro Jahr.
-    """
     df = pd.DataFrame({
         "Jahr": list(range(1, len(cashflows)+1)),
         "Cashflow": cashflows
-    })
-    df.set_index("Jahr", inplace=True)
+    }).set_index("Jahr")
     return df
 
 ###############################################################################
-# Streamlit App
+# Erklärung der Variablennamen (für LaTeX-Ausgabe)
 ###############################################################################
-st.title("Finanzmathematische Berechnungen mit Sympy-Visualisierung")
+symbol_explanations = {
+    "BW_0": "Barwert (heutiger Gegenwert) in Euro",
+    "EW_n": "Endwert (künftiger Wert) in Euro",
+    "b":    "Jährliche Rente (konstante Zahlung in Euro)",
+    "i":    "Zinssatz pro Periode (dezimal, z. B. 0.06 = 6%)",
+    "n":    "Anzahl der Perioden (z. B. Jahre)",
+    "a_0":  "Anfangsinvestition (Anschaffungsausgabe) in Euro",
+    "C":    "Jährlicher Rückfluss in Euro",
+    "AD":   "Amortisationsdauer (Jahre)"
+}
+
+###############################################################################
+# Hilfsfunktion: Zeige Sympy-Formel mitsamt Variablen-Erklärung
+###############################################################################
+def show_sympy_formula(
+    expr: sympy.Expr,
+    symbols_map: dict,
+    result_label="Ergebnis",
+    numeric=None
+):
+    """
+    Zeigt die allgemeine Formel, die Erklärung der Variablen,
+    die eingesetzten Werte und das numerische Ergebnis per LaTeX in Streamlit an.
+
+    :param expr: Sympy expression
+    :param symbols_map: Dict {Symbol: Wert, ...} mit den konkreten Einsetzungen
+    :param result_label: z.B. 'BW_0'
+    :param numeric: fertiges numerisches Ergebnis (float) oder None
+    """
+    from sympy import latex
+
+    # 1) Erklärung der Variablen
+    st.markdown("**Erklärung der verwendeten Variablen**:")
+    # Sammle alle Symbole, die in expr oder in symbols_map auftauchen
+    all_syms = set(expr.free_symbols) | set(symbols_map.keys())
+    # all_syms ist eine Menge aus z.B. iSym, nSym, ...
+    # -> nutze .name, um im dictionary nachzusehen
+    for s in sorted(all_syms, key=lambda x: x.name):
+        s_name = s.name if isinstance(s, sympy.Symbol) else str(s)
+        if s_name in symbol_explanations:
+            st.write(f"- **{s_name}**: {symbol_explanations[s_name]}")
+
+    # 2) Allgemeine symbolische Formel
+    st.markdown("**Allgemeine symbolische Formel**:")
+    st.latex(f"{result_label} = {latex(expr)}")
+    
+    # 3) Eingesetzte tatsächliche Werte in der Formel
+    st.markdown("**Eingesetzte Werte in der Formel**:")
+    substituted_expr = expr.subs(symbols_map)
+    st.latex(f"{result_label} = {latex(substituted_expr)}")
+
+    # 4) Numerisches Ergebnis (sofern übergeben)
+    if numeric is not None:
+        st.markdown("**Numerisches Ergebnis**:")
+        st.latex(f"{result_label} \\approx {numeric:,.2f}")
+
+###############################################################################
+# Streamlit-App
+###############################################################################
+st.title("Finanzmathematische Berechnungen mit Sympy-Formel‐Darstellung")
 
 st.markdown("""
 Willkommen zu dieser **App**, die finanzmathematische Grundlagen
 (z. B. Barwert, Endwert, Rente, NPV) berechnet **und** den Rechenweg in
 anschaulichen **Sympy/LaTeX‐Formeln** darstellt.
+Außerdem werden alle Variablen kurz erklärt und die konkreten Zahlen
+in die Formel eingesetzt, **noch vor** dem endgültigen Ergebnis.
 """)
 
 calc_choice = st.sidebar.radio(
@@ -193,43 +228,6 @@ calc_choice = st.sidebar.radio(
     )
 )
 
-
-###############################################################################
-# Hilfsfunktion: Zeige Sympy-Formel
-###############################################################################
-def show_sympy_formula(expr, symbols_map: dict, result_label="Ergebnis", numeric=None):
-    """
-    Zeigt die allgemeine Formel, die Substitution und (optional) das numerische Ergebnis
-    mit LaTeX in Streamlit an.
-
-    Parameter:
-      expr (sympy expression): Der symbolische Ausdruck
-      symbols_map (dict): z.B. {'BW_0': 1000, 'i':0.06, 'n':8}, ...
-      result_label (str): z.B. "BW_0"
-      numeric (float): optional, das fertige numerische Ergebnis
-    """
-    from sympy import latex
-    
-    # 1) Allgemeine Formel
-    st.markdown("**Allgemeine symbolische Formel**:")
-    st.latex(f"{result_label} = {latex(expr)}")
-    
-    # 2) Substitutionen
-    st.markdown("**Einsetzen der Werte**:")
-    
-    # Baue z.B. so: b = 1000, i=0.06, n=8 ...
-    subs_str = ", ".join([f"{k}={v}" for k, v in symbols_map.items()])
-    st.latex(
-        f"{result_label} = {latex(expr.subs(symbols_map))}"
-    )
-    st.write(f"(mit {subs_str})")
-    
-    # 3) Numerisches Ergebnis
-    if numeric is not None:
-        st.markdown("**Numerisches Ergebnis**:")
-        st.latex(f"{result_label} \\approx {numeric:,.2f}")
-
-
 ###############################################################################
 # 1) Einmalige Zahlung (Barwert / Endwert)
 ###############################################################################
@@ -237,20 +235,19 @@ if calc_choice == "Einmalige Zahlung (Barwert / Endwert)":
     st.subheader("Einmalige Zahlung: Barwert und Endwert")
     tab = st.radio("Berechnung auswählen", ("Endwert", "Barwert"), horizontal=True)
 
-    # Sympy-Symbole für einmalige Zahlung
+    # Sympy-Symbole
     BW0Sym, iSym, nSym, EWnSym = sympy.symbols("BW_0 i n EW_n", positive=True)
 
     if tab == "Endwert":
         # Symbolische Formel: EW_n = BW_0*(1+i)^n
-        endwert_expr = BW0Sym * (1+iSym)**nSym
+        endwert_expr = BW0Sym * (1 + iSym)**nSym
 
         pv_val = st.number_input("Aktueller Betrag (BW₀)", value=1000.0, step=100.0)
-        i_val = st.number_input("Zinssatz i (z.B. 0.06 = 6%)", value=0.06)
+        i_val = st.number_input("Zinssatz i (z. B. 0.06 für 6%)", value=0.06)
         n_val = st.number_input("Anzahl Perioden (n)", value=8, step=1)
 
         if st.button("Berechne Endwert"):
             result = future_value(pv_val, i_val, n_val)
-            # Symbolische Ausgabe
             show_sympy_formula(
                 expr=endwert_expr,
                 symbols_map={BW0Sym: pv_val, iSym: i_val, nSym: n_val},
@@ -267,7 +264,7 @@ if calc_choice == "Einmalige Zahlung (Barwert / Endwert)":
         barwert_expr = EWnSym / ((1 + iSym)**nSym)
 
         fv_val = st.number_input("Zukünftiger Betrag (EWₙ)", value=1000.0, step=100.0)
-        i_val = st.number_input("Zinssatz i (z.B. 0.06 = 6%)", value=0.06)
+        i_val = st.number_input("Zinssatz i (z. B. 0.06 für 6%)", value=0.06)
         n_val = st.number_input("Anzahl Perioden (n)", value=8, step=1)
 
         if st.button("Berechne Barwert"):
@@ -288,13 +285,12 @@ elif calc_choice == "Renten-Berechnungen (Bar- und Endwert)":
     st.subheader("Renten-Berechnungen (gleichbleibende Zahlungen b)")
     tab = st.radio("Berechnung auswählen", ("Rentenbarwert", "Rentenendwert"), horizontal=True)
 
-    # Sympy-Symbole: b, i, n, BW0, EWn
     bSym, iSym, nSym = sympy.symbols("b i n", positive=True)
     BW0Sym, EWnSym = sympy.symbols("BW_0 EW_n", positive=True)
 
     if tab == "Rentenbarwert":
         # BW_0 = b * ((1+i)^n - 1) / [ i*(1+i)^n ]
-        barwert_expr = bSym * ((1 + iSym)**nSym - 1) / (iSym * (1 + iSym)**nSym)
+        barwert_expr = bSym * ((1 + iSym)**nSym - 1)/(iSym*(1 + iSym)**nSym)
 
         b_val = st.number_input("Jährliche Rentenzahlung b", value=1000.0, step=100.0)
         i_val = st.number_input("Zinssatz i", value=0.06)
@@ -334,6 +330,7 @@ elif calc_choice == "Renten-Berechnungen (Bar- und Endwert)":
             df_endwert = visualize_annuity_future(b_val, i_val, n_val)
             st.line_chart(df_endwert)
 
+
 ###############################################################################
 # 3) Rentenhöhe aus Barwert / Endwert
 ###############################################################################
@@ -347,7 +344,7 @@ elif calc_choice == "Rentenhöhe aus Barwert / Endwert":
     b_from_BW_expr = BW0Sym * (iSym*(1+iSym)**nSym)/((1+iSym)**nSym - 1)
 
     # b = EW_n * [ i / ((1+i)^n - 1) ]
-    b_from_EW_expr = EWnSym * (iSym / ((1 + iSym)**nSym - 1))
+    b_from_EW_expr = EWnSym * (iSym / ((1+iSym)**nSym - 1))
 
     if tab == "Barwert (BW₀)":
         pv_val = st.number_input("Barwert (BW₀)", value=6209.79, step=100.0)
@@ -379,6 +376,7 @@ elif calc_choice == "Rentenhöhe aus Barwert / Endwert":
             )
             st.success(f"Rentenhöhe b = {b_stern:,.2f} €")
 
+
 ###############################################################################
 # 4) Zahlungsreihe (NPV / FV)
 ###############################################################################
@@ -393,13 +391,8 @@ elif calc_choice == "Zahlungsreihe (NPV / FV)":
     i_val = st.number_input("Zinssatz i", value=0.06)
     tab = st.radio("Was möchtest du berechnen?", ("Barwert (NPV)", "Endwert (FV)"), horizontal=True)
 
-    # Symbolische Definition für NPV:  sum_{t=1..n} ( c_t / (1+i)^t )
-    # Symbolische Definition für FV:   sum_{t=1..n} ( c_t * (1+i)^(n-t) )
-    c_t = sympy.Function("c_t")  # c(t) als symbolische Funktion
-    tSym = sympy.Symbol("t", positive=True)
-    # In Streamlit (Ad-hoc) sind die Cashflows direkt als Liste vorhanden, 
-    # wir können den exakten Summen-Ausdruck aber nur veranschaulichen.
-
+    # Für die Summenformel haben wir symbolische Ausdrücke, 
+    # aber hier reicht die statische Demonstration, da wir beliebig viele CFs haben.
     if st.button("Berechnen"):
         try:
             cashflows = [float(x.strip()) for x in cf_str.split(",")]
@@ -439,10 +432,10 @@ elif calc_choice == "Zahlungsreihe (NPV / FV)":
 ###############################################################################
 # 5) Amortisationsdauer (statische Methode)
 ###############################################################################
-else:  # "Amortisationsdauer (statische Methode)"
+else:
     st.subheader("Statische Amortisationsdauer (Payback Period)")
 
-    # Symbolische Formel: AD = a0 / C
+    # Symbolische Formel: AD = a_0 / C
     a0Sym, CSym, ADSym = sympy.symbols("a_0 C AD", positive=True)
     ad_expr = a0Sym / CSym
 
@@ -455,7 +448,6 @@ else:  # "Amortisationsdauer (statische Methode)"
         if ad == float("inf"):
             st.error("Amortisationsdauer = ∞ (keine Amortisation, da jährlicher Rückfluss = 0).")
         else:
-            # Symbolische Darstellung
             show_sympy_formula(
                 expr=ad_expr,
                 symbols_map={a0Sym: a0, CSym: c},
@@ -473,4 +465,4 @@ else:  # "Amortisationsdauer (statische Methode)"
                 )
 
 st.markdown("---")
-st.caption("© 2025 – Streamlit-App mit Sympy‐Formeln für alle finanzmathematischen Standardrechnungen.")
+st.caption("© 2025 – Ausführliche Formeln, Variablen‐Erklärungen und Visualisierungen.")
