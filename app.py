@@ -1,10 +1,14 @@
+###############################################################################
+# app.py
+###############################################################################
 import streamlit as st
 import pandas as pd
 import altair as alt
 import math
+import sympy
 
 ###############################################################################
-# Finanzmathematische Funktionen
+# Finanzmathematische Funktionen (rein numerisch)
 ###############################################################################
 def future_value(pv: float, i: float, n: int) -> float:
     """
@@ -31,7 +35,7 @@ def annuity_future_value(b: float, i: float, n: int) -> float:
 def annuity_present_value(b: float, i: float, n: int) -> float:
     """
     Barwert einer Rente (nachschüssig) mit Rate b pro Jahr, Zinssatz i, Laufzeit n.
-    Formel: BW_0 = b * ( (1+i)^n - 1 ) / ( i * (1+i)^n )
+    Formel: BW_0 = b * ((1+i)^n - 1) / (i * (1+i)^n)
     """
     q = 1 + i
     return b * ((q**n - 1) / (i * q**n))
@@ -73,8 +77,6 @@ def fv_of_cashflow_series(cashflows: list[float], i: float) -> float:
         fv += cf * ((1 + i)**(n - t))
     return fv
 
-
-
 def payback_period(a0: float, annual_return: float) -> float:
     """
     Berechnet die statische Amortisationsdauer (AD) nach der Formel:
@@ -84,17 +86,15 @@ def payback_period(a0: float, annual_return: float) -> float:
         return float("inf")
     return a0 / annual_return
 
+
+###############################################################################
+# Hilfsfunktionen für Visualisierungen
+###############################################################################
 def plot_payback(a0: float, annual_return: float):
     """
-    Erstellt eine einfache Liniendiagramm-Visualisierung für die kumulierten
-    Rückflüsse bis zur Amortisation.
-
-    Wir plotten die Summen C * t über die Zeit t = 0..T, 
-    wobei T etwas größer als die berechnete AD gewählt wird,
-    damit man sieht, ab welchem Jahr a0 'eingespielt' ist.
+    Liniendiagramm zur kumulierten Rückflüsse bis zur Amortisation.
     """
     ad = payback_period(a0, annual_return)
-    # runden wir auf das nächste ganze Jahr + 1 zur Sicherheit:
     max_year = math.ceil(ad) + 1
     
     data = []
@@ -104,27 +104,20 @@ def plot_payback(a0: float, annual_return: float):
 
     df = pd.DataFrame(data)
 
-    # Linie plotten
     base_chart = alt.Chart(df).mark_line(point=True).encode(
         x=alt.X("Jahr:Q"),
         y=alt.Y("Kumulierte Rückflüsse:Q"),
         tooltip=["Jahr", "Kumulierte Rückflüsse"]
     )
-
-    # Optional: horizontale Linie für a0, um die Break-Even-Stelle zu sehen
     rule = alt.Chart(pd.DataFrame({"y": [a0]})).mark_rule(color="red").encode(y="y")
 
     chart = (base_chart + rule).interactive()
     return chart
 
 
-###############################################################################
-# Hilfsfunktionen für Visualisierungen
-###############################################################################
 def visualize_single_payment_growth(pv: float, i: float, n: int):
     """
-    Erzeugt eine DataFrame für den jährlich wachsenden Wert einer Einmalzahlung pv
-    bei Zinssatz i bis Jahr n (d.h. Jahr 0 bis n).
+    DF für den jährlich wachsenden Wert einer Einmalzahlung pv bei Zinssatz i, bis Jahr n.
     """
     values = []
     for year in range(n+1):
@@ -139,16 +132,13 @@ def visualize_single_payment_growth(pv: float, i: float, n: int):
 
 def visualize_annuity_future(b: float, i: float, n: int):
     """
-    Zeigt, wie sich eine jährliche Rente b bis zum Endwert entwickelt.
-    Jedes Jahr kommt eine Zahlung b dazu, plus Zins auf bereits angefallene Beträge.
+    DF: jährliche Fortschreibung einer Rente b bis zum Endwert nach n Jahren.
     """
     q = 1 + i
     balance = 0.0
     timeline = []
     for year in range(1, n+1):
-        # Vor Rentenzahlung zinsen wir das Vorjahr auf
         balance *= q
-        # Dann fließt die Rente
         balance += b
         timeline.append(balance)
     df = pd.DataFrame({"Jahr": list(range(1, n+1)), "Saldo": timeline})
@@ -157,8 +147,7 @@ def visualize_annuity_future(b: float, i: float, n: int):
 
 def visualize_annuity_present(b: float, i: float, n: int):
     """
-    Zeigt kumulativ den diskontierten Betrag jeder Rentenzahlung,
-    um den Barwert zu illustrieren.
+    DF: kumulative Summe der diskontierten Rentenzahlungen.
     """
     q = 1 + i
     timeline = []
@@ -173,7 +162,7 @@ def visualize_annuity_present(b: float, i: float, n: int):
 
 def visualize_cashflow_series(cashflows: list[float]):
     """
-    Stellt die einzelnen Zahlungen pro Periode als Balken dar.
+    Balkendiagramm der Cashflows pro Jahr.
     """
     df = pd.DataFrame({
         "Jahr": list(range(1, len(cashflows)+1)),
@@ -182,17 +171,15 @@ def visualize_cashflow_series(cashflows: list[float]):
     df.set_index("Jahr", inplace=True)
     return df
 
-
 ###############################################################################
 # Streamlit App
 ###############################################################################
-
-st.title("Finanzmathematische Berechnungen mit Visualisierung")
+st.title("Finanzmathematische Berechnungen mit Sympy-Visualisierung")
 
 st.markdown("""
 Willkommen zu dieser **App**, die finanzmathematische Grundlagen
-(z. B. Barwert, Endwert, Rente, NPV) berechnet **und** zur Veranschaulichung
-eine kleine **grafische Darstellung** erzeugt.  
+(z. B. Barwert, Endwert, Rente, NPV) berechnet **und** den Rechenweg in
+anschaulichen **Sympy/LaTeX‐Formeln** darstellt.
 """)
 
 calc_choice = st.sidebar.radio(
@@ -208,81 +195,159 @@ calc_choice = st.sidebar.radio(
 
 
 ###############################################################################
-# 1. Einmalige Zahlung
+# Hilfsfunktion: Zeige Sympy-Formel
+###############################################################################
+def show_sympy_formula(expr, symbols_map: dict, result_label="Ergebnis", numeric=None):
+    """
+    Zeigt die allgemeine Formel, die Substitution und (optional) das numerische Ergebnis
+    mit LaTeX in Streamlit an.
+
+    Parameter:
+      expr (sympy expression): Der symbolische Ausdruck
+      symbols_map (dict): z.B. {'BW_0': 1000, 'i':0.06, 'n':8}, ...
+      result_label (str): z.B. "BW_0"
+      numeric (float): optional, das fertige numerische Ergebnis
+    """
+    from sympy import latex
+    
+    # 1) Allgemeine Formel
+    st.markdown("**Allgemeine symbolische Formel**:")
+    st.latex(f"{result_label} = {latex(expr)}")
+    
+    # 2) Substitutionen
+    st.markdown("**Einsetzen der Werte**:")
+    
+    # Baue z.B. so: b = 1000, i=0.06, n=8 ...
+    subs_str = ", ".join([f"{k}={v}" for k, v in symbols_map.items()])
+    st.latex(
+        f"{result_label} = {latex(expr.subs(symbols_map))}"
+    )
+    st.write(f"(mit {subs_str})")
+    
+    # 3) Numerisches Ergebnis
+    if numeric is not None:
+        st.markdown("**Numerisches Ergebnis**:")
+        st.latex(f"{result_label} \\approx {numeric:,.2f}")
+
+
+###############################################################################
+# 1) Einmalige Zahlung (Barwert / Endwert)
 ###############################################################################
 if calc_choice == "Einmalige Zahlung (Barwert / Endwert)":
     st.subheader("Einmalige Zahlung: Barwert und Endwert")
     tab = st.radio("Berechnung auswählen", ("Endwert", "Barwert"), horizontal=True)
 
+    # Sympy-Symbole für einmalige Zahlung
+    BW0Sym, iSym, nSym, EWnSym = sympy.symbols("BW_0 i n EW_n", positive=True)
+
     if tab == "Endwert":
+        # Symbolische Formel: EW_n = BW_0*(1+i)^n
+        endwert_expr = BW0Sym * (1+iSym)**nSym
+
         pv_val = st.number_input("Aktueller Betrag (BW₀)", value=1000.0, step=100.0)
-        i_val = st.number_input("Zinssatz i (Dezimal, z.B. 0.06 = 6%)", value=0.06)
+        i_val = st.number_input("Zinssatz i (z.B. 0.06 = 6%)", value=0.06)
         n_val = st.number_input("Anzahl Perioden (n)", value=8, step=1)
 
         if st.button("Berechne Endwert"):
             result = future_value(pv_val, i_val, n_val)
+            # Symbolische Ausgabe
+            show_sympy_formula(
+                expr=endwert_expr,
+                symbols_map={BW0Sym: pv_val, iSym: i_val, nSym: n_val},
+                result_label="EW_n",
+                numeric=result
+            )
             st.success(f"Endwert (EWₙ) = {result:,.2f} €")
 
-            # Visualisierung: Wachstum pro Jahr
             df_chart = visualize_single_payment_growth(pv_val, i_val, n_val)
             st.line_chart(df_chart)
 
-    else:  # Barwert
+    else:
+        # Symbolische Formel: BW_0 = EW_n / (1+i)^n
+        barwert_expr = EWnSym / ((1 + iSym)**nSym)
+
         fv_val = st.number_input("Zukünftiger Betrag (EWₙ)", value=1000.0, step=100.0)
-        i_val = st.number_input("Zinssatz i (Dezimal, z.B. 0.06 = 6%)", value=0.06)
+        i_val = st.number_input("Zinssatz i (z.B. 0.06 = 6%)", value=0.06)
         n_val = st.number_input("Anzahl Perioden (n)", value=8, step=1)
 
         if st.button("Berechne Barwert"):
             result = present_value(fv_val, i_val, n_val)
+            show_sympy_formula(
+                expr=barwert_expr,
+                symbols_map={EWnSym: fv_val, iSym: i_val, nSym: n_val},
+                result_label="BW_0",
+                numeric=result
+            )
             st.success(f"Barwert (BW₀) = {result:,.2f} €")
-
-            # Visualisierung: Wir können ebenfalls den "Wachstumsverlauf" rückwärts zeigen
-            # => Hier aber optional. Wer mag, kann die Discounting-Kurve darstellen.
-            st.write("**Optionale Visualisierung**: Wenn du die *Aufzinsung* (EW) bei jeder Periode betrachtest, "
-                     "wäre es der gleiche Graph wie bei 'Endwert', nur rückwärts interpretiert.")
-            # Kein zusätzliches Diagramm hier, um es nicht zu kompliziert zu machen.
 
 
 ###############################################################################
-# 2. Renten-Berechnungen
+# 2) Renten-Berechnungen (Bar- und Endwert)
 ###############################################################################
 elif calc_choice == "Renten-Berechnungen (Bar- und Endwert)":
     st.subheader("Renten-Berechnungen (gleichbleibende Zahlungen b)")
     tab = st.radio("Berechnung auswählen", ("Rentenbarwert", "Rentenendwert"), horizontal=True)
 
+    # Sympy-Symbole: b, i, n, BW0, EWn
+    bSym, iSym, nSym = sympy.symbols("b i n", positive=True)
+    BW0Sym, EWnSym = sympy.symbols("BW_0 EW_n", positive=True)
+
     if tab == "Rentenbarwert":
+        # BW_0 = b * ((1+i)^n - 1) / [ i*(1+i)^n ]
+        barwert_expr = bSym * ((1 + iSym)**nSym - 1) / (iSym * (1 + iSym)**nSym)
+
         b_val = st.number_input("Jährliche Rentenzahlung b", value=1000.0, step=100.0)
         i_val = st.number_input("Zinssatz i", value=0.06)
         n_val = st.number_input("Anzahl Perioden n", value=8, step=1)
 
         if st.button("Berechne Renten-Barwert"):
             result = annuity_present_value(b_val, i_val, n_val)
+            show_sympy_formula(
+                expr=barwert_expr,
+                symbols_map={bSym: b_val, iSym: i_val, nSym: n_val},
+                result_label="BW_0",
+                numeric=result
+            )
             st.success(f"Barwert der Rente = {result:,.2f} €")
             
-            # Visualisierung: kumul. diskontierter Wert
             df_barwert = visualize_annuity_present(b_val, i_val, n_val)
             st.line_chart(df_barwert)
 
-    else:  # Rentenendwert
+    else:
+        # EW_n = b * [((1 + i)^n - 1)/i]
+        endwert_expr = bSym * (((1 + iSym)**nSym) - 1)/iSym
+
         b_val = st.number_input("Jährliche Rentenzahlung b", value=1000.0, step=100.0)
         i_val = st.number_input("Zinssatz i", value=0.06)
         n_val = st.number_input("Anzahl Perioden n", value=8, step=1)
 
         if st.button("Berechne Renten-Endwert"):
             result = annuity_future_value(b_val, i_val, n_val)
+            show_sympy_formula(
+                expr=endwert_expr,
+                symbols_map={bSym: b_val, iSym: i_val, nSym: n_val},
+                result_label="EW_n",
+                numeric=result
+            )
             st.success(f"Endwert der Rente = {result:,.2f} €")
 
-            # Visualisierung: Wachstum der Rente je Periode
             df_endwert = visualize_annuity_future(b_val, i_val, n_val)
             st.line_chart(df_endwert)
 
-
 ###############################################################################
-# 3. Rentenhöhe aus Barwert / Endwert
+# 3) Rentenhöhe aus Barwert / Endwert
 ###############################################################################
 elif calc_choice == "Rentenhöhe aus Barwert / Endwert":
     st.subheader("Gesuchte Rentenhöhe b aus gegebenem Barwert oder Endwert")
     tab = st.radio("Was ist vorgegeben?", ("Barwert (BW₀)", "Endwert (EWₙ)"), horizontal=True)
+
+    bSym, BW0Sym, EWnSym, iSym, nSym = sympy.symbols("b BW_0 EW_n i n", positive=True)
+
+    # b = BW_0 * [ i*(1+i)^n / ((1+i)^n - 1) ]
+    b_from_BW_expr = BW0Sym * (iSym*(1+iSym)**nSym)/((1+iSym)**nSym - 1)
+
+    # b = EW_n * [ i / ((1+i)^n - 1) ]
+    b_from_EW_expr = EWnSym * (iSym / ((1 + iSym)**nSym - 1))
 
     if tab == "Barwert (BW₀)":
         pv_val = st.number_input("Barwert (BW₀)", value=6209.79, step=100.0)
@@ -291,38 +356,49 @@ elif calc_choice == "Rentenhöhe aus Barwert / Endwert":
 
         if st.button("Berechne b aus Barwert"):
             b_stern = annuity_from_present_value(pv_val, i_val, n_val)
+            show_sympy_formula(
+                expr=b_from_BW_expr,
+                symbols_map={BW0Sym: pv_val, iSym: i_val, nSym: n_val},
+                result_label="b",
+                numeric=b_stern
+            )
             st.success(f"Rentenhöhe b = {b_stern:,.2f} €")
-            
-            # Hier könntest du optional eine Visualisierung ergänzen, z.B. 
-            # wie sich eine Rente b zusammensetzt, wenn der Barwert gegeben ist.
 
-    else:  # Endwert (EWₙ)
+    else:
         fv_val = st.number_input("Endwert (EWₙ)", value=9897.47, step=100.0)
         i_val = st.number_input("Zinssatz i", value=0.06)
         n_val = st.number_input("Anzahl Perioden n", value=8, step=1)
 
         if st.button("Berechne b aus Endwert"):
             b_stern = annuity_from_future_value(fv_val, i_val, n_val)
+            show_sympy_formula(
+                expr=b_from_EW_expr,
+                symbols_map={EWnSym: fv_val, iSym: i_val, nSym: n_val},
+                result_label="b",
+                numeric=b_stern
+            )
             st.success(f"Rentenhöhe b = {b_stern:,.2f} €")
-            
-            # Auch hier könnte man eine Visualisierung anfügen, ähnlich wie 
-            # in 'visualize_annuity_future', nur den Wert b dynamisch einsetzen.
-
 
 ###############################################################################
-# 4. Zahlungsreihe (NPV / FV)
+# 4) Zahlungsreihe (NPV / FV)
 ###############################################################################
 elif calc_choice == "Zahlungsreihe (NPV / FV)":
     st.subheader("Zahlungsreihe (unregelmäßige Zahlungen) – NPV / FV")
     st.markdown("""
     Gib hier eine beliebige Reihe an jährlichen **Cashflows** ein.
-    Dann kannst du den **Barwert (NPV)** oder **Endwert (FV)** berechnen
-    und ein Diagramm anzeigen lassen.
+    Dann kannst du den **Barwert (NPV)** oder **Endwert (FV)** berechnen.
     """)
 
     cf_str = st.text_input("Cashflows als Komma-getrennte Liste (z.B. '100, 200, 300'):", "100,200,300")
     i_val = st.number_input("Zinssatz i", value=0.06)
     tab = st.radio("Was möchtest du berechnen?", ("Barwert (NPV)", "Endwert (FV)"), horizontal=True)
+
+    # Symbolische Definition für NPV:  sum_{t=1..n} ( c_t / (1+i)^t )
+    # Symbolische Definition für FV:   sum_{t=1..n} ( c_t * (1+i)^(n-t) )
+    c_t = sympy.Function("c_t")  # c(t) als symbolische Funktion
+    tSym = sympy.Symbol("t", positive=True)
+    # In Streamlit (Ad-hoc) sind die Cashflows direkt als Liste vorhanden, 
+    # wir können den exakten Summen-Ausdruck aber nur veranschaulichen.
 
     if st.button("Berechnen"):
         try:
@@ -333,26 +409,42 @@ elif calc_choice == "Zahlungsreihe (NPV / FV)":
 
         if tab == "Barwert (NPV)":
             result = npv_of_cashflow_series(cashflows, i_val)
-            st.success(f"Barwert (NPV) = {result:,.2f} €")
 
-            # Visualisierung: Balkendiagramm der eingegebenen Cashflows
+            st.markdown("**Symbolische Formel** (für n Zahlungen):")
+            st.latex(
+                r"\text{NPV} = \sum_{t=1}^n \frac{c_t}{(1 + i)^t}"
+            )
+            st.write(f"Cashflows: {cashflows}, Zinssatz i={i_val}")
+            st.latex(f"\\text{{NPV}} \\approx {result:,.2f}")
+
+            st.success(f"Barwert (NPV) = {result:,.2f} €")
             df_cf = visualize_cashflow_series(cashflows)
             st.bar_chart(df_cf)
 
         else:
             result = fv_of_cashflow_series(cashflows, i_val)
-            st.success(f"Endwert (FV) = {result:,.2f} €")
 
-            # Visualisierung: Balkendiagramm der Cashflows
+            st.markdown("**Symbolische Formel** (für n Zahlungen):")
+            st.latex(
+                r"\text{FV} = \sum_{t=1}^n c_t \,(1 + i)^{(n - t)}"
+            )
+            st.write(f"Cashflows: {cashflows}, Zinssatz i={i_val}")
+            st.latex(f"\\text{{FV}} \\approx {result:,.2f}")
+
+            st.success(f"Endwert (FV) = {result:,.2f} €")
             df_cf = visualize_cashflow_series(cashflows)
             st.bar_chart(df_cf)
 
 
-# ---------------------------------------------------------------
-#  5. Statische Amortisationsdauer
-# ---------------------------------------------------------------
-elif calc_choice == "Amortisationsdauer (statische Methode)":
+###############################################################################
+# 5) Amortisationsdauer (statische Methode)
+###############################################################################
+else:  # "Amortisationsdauer (statische Methode)"
     st.subheader("Statische Amortisationsdauer (Payback Period)")
+
+    # Symbolische Formel: AD = a0 / C
+    a0Sym, CSym, ADSym = sympy.symbols("a_0 C AD", positive=True)
+    ad_expr = a0Sym / CSym
 
     a0 = st.number_input("Anschaffungsausgabe a₀", value=10000.0, step=500.0)
     c  = st.number_input("Jährlicher Rückfluss C", value=2000.0, step=500.0)
@@ -363,6 +455,13 @@ elif calc_choice == "Amortisationsdauer (statische Methode)":
         if ad == float("inf"):
             st.error("Amortisationsdauer = ∞ (keine Amortisation, da jährlicher Rückfluss = 0).")
         else:
+            # Symbolische Darstellung
+            show_sympy_formula(
+                expr=ad_expr,
+                symbols_map={a0Sym: a0, CSym: c},
+                result_label="AD",
+                numeric=ad
+            )
             st.success(f"Die statische Amortisationsdauer beträgt {ad:,.2f} Jahre.")
 
             if show_chart:
@@ -373,6 +472,5 @@ elif calc_choice == "Amortisationsdauer (statische Methode)":
                     "Dort, wo die blaue Kurve sie schneidet, ist das 'Break Even'-Jahr."
                 )
 
-
 st.markdown("---")
-st.caption("© 2025 – Workaround, weil ich keine Lust habe Brüche in einen Taschenrechner zu tippen... :D")
+st.caption("© 2025 – Streamlit-App mit Sympy‐Formeln für alle finanzmathematischen Standardrechnungen.")
