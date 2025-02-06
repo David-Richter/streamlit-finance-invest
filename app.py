@@ -848,8 +848,8 @@ elif calc_choice == "Interner Zinsfuß":
 
     # Kapitalmarktzins (Referenzzinssatz) als eigener Input:
     i_ref = st.number_input(
-        "Kapitalmarktzins i_ref (z.B. 0.05 = 5%)",
-        value=0.05,
+        "Kapitalmarktzins i_ref (z.B. 0.06 = 6%)",
+        value=0.06,
         min_value=0.00,
         max_value=1.00,
         step=0.01,
@@ -857,16 +857,16 @@ elif calc_choice == "Interner Zinsfuß":
     )
 
     # Obergrenze für die Grafik separat:
-    max_plot_rate = st.number_input(
-        "Obergrenze für i in der Grafik (z.B. 0.50 = 50%)",
-        value=0.50,
-        min_value=0.00,
-        max_value=1.00,
-        step=0.05,
-        format="%.2f"
-    )
+    # max_plot_rate = st.number_input(
+    #     "Obergrenze für i in der Grafik (z.B. 0.50 = 50%)",
+    #     value=0.50,
+    #     min_value=0.00,
+    #     max_value=1.00,
+    #     step=0.05,
+    #     format="%.2f"
+    # )
 
-    steps = st.slider("Anzahl Schritte in der Kurve", 10, 200, 100)
+    # steps = st.slider("Anzahl Schritte in der Kurve", 10, 200, 100)
 
     if st.button("IRR berechnen"):
 
@@ -910,7 +910,7 @@ elif calc_choice == "Interner Zinsfuß":
         st.info("Zahlungsreihe: Periode 0 => -a₀, Periode 1..n => cₜ.")
 
         # Kapitalwertkurve mit eigener Obergrenze
-        chart = plot_capital_value_curve(a0, flows, max_rate=max_plot_rate, steps=steps)
+        chart = plot_capital_value_curve(a0, flows, max_rate=1, steps=100)
         st.altair_chart(chart, use_container_width=True)
         st.info("""
         Die rote Linie markiert den Kapitalwert = 0.
