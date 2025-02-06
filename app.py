@@ -145,6 +145,76 @@ def visualize_cashflow_series(cashflows: list[float]):
     }).set_index("Jahr")
     return df
 
+def visualize_growth_single_payment(pv: float, i: float, n: int):
+    """
+    Kleines Beispiel: Zeigt die (aufgezins­ten) Werte einer einmaligen Zahlung PV
+    über n Perioden bei Zinssatz i.
+    """
+    data = []
+    for t in range(n+1):
+        value = pv * (1 + i)**t
+        data.append({"Jahr": t, "Wert": value})
+    df = pd.DataFrame(data)
+    chart = (
+        alt.Chart(df)
+        .mark_line(point=True)
+        .encode(
+            x="Jahr:Q",
+            y="Wert:Q",
+            tooltip=["Jahr", "Wert"]
+        )
+        .properties(title="Zeitlicher Verlauf einer Einmalzahlung (aufgezinst)")
+        .interactive()
+    )
+    return chart
+
+def visualize_cashflow_series_example():
+    """
+    Einfaches Balkendiagramm für eine (fiktive) Zahlungsreihe c1..c5.
+    """
+    # Beispielwerte
+    cashflows = [-1000, 200, 300, 400, 600]  # 5 Perioden
+    data = []
+    for t, cf in enumerate(cashflows, start=0):
+        data.append({"Periode": t, "Zahlung c_t": cf})
+    df = pd.DataFrame(data)
+    chart = (
+        alt.Chart(df)
+        .mark_bar()
+        .encode(
+            x=alt.X("Periode:O", title="Periode (t)"),
+            y=alt.Y("Zahlung c_t:Q", title="Höhe der Zahlung"),
+            tooltip=["Periode", "Zahlung c_t"]
+        )
+        .properties(title="Beispiel-Zahlungsreihe mit positiven/negativen Zahlungen")
+    )
+    return chart
+
+def visualize_rente_example(b: float, i: float, n: int):
+    """
+    Zeigt, wie sich eine Rente b in jedem Jahr zum Endwert aufaddiert:
+    Jedes Jahr Rente + Aufzinsung.
+    """
+    data = []
+    balance = 0.0
+    q = 1 + i
+    for year in range(1, n+1):
+        balance = balance * q + b
+        data.append({"Jahr": year, "Kumulierte Summe": balance})
+    df = pd.DataFrame(data)
+    chart = (
+        alt.Chart(df)
+        .mark_line(point=True)
+        .encode(
+            x="Jahr:Q",
+            y="Kumulierte Summe:Q",
+            tooltip=["Jahr", "Kumulierte Summe"]
+        )
+        .properties(title="Beispiel: Rente b, jährlich aufgezinst bis Endwert")
+        .interactive()
+    )
+    return chart
+
 ###############################################################################
 # Erklärung der Variablennamen (für LaTeX-Ausgabe)
 ###############################################################################
@@ -465,37 +535,277 @@ elif calc_choice == "Amortisationsdauer (statische Methode)":
                     "Dort, wo die blaue Kurve sie schneidet, ist das 'Break Even'-Jahr."
                 )
 
-else:
-    #theory_choice == "Unterschied: Zahlung, Zahlungsreihe, Rente"
-    st.header("Theoretisches Wissen")
-    st.subheader("Was unterscheidet eine Zahlung, eine Zahlungsreihe und eine Rente?")
+###############################################################################
+# Theoretisches Wissen
+###############################################################################
 
-    st.markdown("""
-    **1. Zahlung**  
-    Eine einzelne Transaktion (Cashflow) zu einem bestimmten Zeitpunkt.  
-    Beispiel: Eine Anschaffungszahlung von -500 € heute (t=0).
+# theory_choice = st.sidebar.radio(
+#     "Theoretisches Wissen:",
+#     ("Keine Anzeige", "Unterschied: Zahlung, Zahlungsreihe, Rente")
+# )
 
-    **2. Zahlungsreihe**  
-    Eine Folge mehrerer Zahlungen über die Zeit. Die einzelnen Beträge können
-    sich in Höhe und Vorzeichen unterscheiden.  
-    Beispiel:  
-    - t=0: -500 € (Investition)  
-    - t=1: +200 € (Rückfluss)  
-    - t=2: +300 €
-
-    **3. Rente**  
-    Eine _gleichförmige_ Zahlungsreihe, d. h. ein fester Betrag, der regelmäßig
-    (z. B. jährlich) gezahlt oder empfangen wird, meistens am Periodenende.
-    Beispiel: Jedes Jahr 1.000 € über n Jahre.  
-    """)
-
-    st.info("""
-    Zusammengefasst:  
-    - Eine *Zahlung* bezeichnet genau **eine** Transaktion (einmalig).  
-    - Eine *Zahlungsreihe* ist jede beliebige **Abfolge** mehrerer Zahlungen.  
-    - Eine *Rente* ist eine **gleichmäßige** Zahlungsreihe (feste Rate, konstantes Intervall).
-    """)
+elif calc_choice == "Theoretisches Wissen":
     
+    st.header("Theoretisches Wissen")
+    topic = st.selectbox(
+        "Wähle ein Themengebiet:",
+        [
+            "Zahlung, Zahlungsreihe, Rente",
+            "Symbolerläuterungen",
+            "Einmalige Zahlung",
+            "Zahlungsreihe",
+            "Rente",
+            "Auf- und Abzinsung (Faktoren)"
+        ]
+    )
+
+    if topic == "Zahlung, Zahlungsreihe, Rente":
+        
+        st.subheader("Was unterscheidet eine Zahlung, eine Zahlungsreihe und eine Rente?")
+
+        st.markdown("""
+        **1. Zahlung**  
+        Eine einzelne Transaktion (Cashflow) zu einem bestimmten Zeitpunkt.  
+        Beispiel: Eine Anschaffungszahlung von -500 € heute (t=0).
+
+        **2. Zahlungsreihe**  
+        Eine Folge mehrerer Zahlungen über die Zeit. Die einzelnen Beträge können
+        sich in Höhe und Vorzeichen unterscheiden.  
+        Beispiel:  
+        - t=0: -500 € (Investition)  
+        - t=1: +200 € (Rückfluss)  
+        - t=2: +300 €
+
+        **3. Rente**  
+        Eine _gleichförmige_ Zahlungsreihe, d. h. ein fester Betrag, der regelmäßig
+        (z. B. jährlich) gezahlt oder empfangen wird, meistens am Periodenende.
+        Beispiel: Jedes Jahr 1.000 € über n Jahre.  
+        """)
+
+        st.info("""
+        Zusammengefasst:  
+        - Eine *Zahlung* bezeichnet genau **eine** Transaktion (einmalig).  
+        - Eine *Zahlungsreihe* ist jede beliebige **Abfolge** mehrerer Zahlungen.  
+        - Eine *Rente* ist eine **gleichmäßige** Zahlungsreihe (feste Rate, konstantes Intervall).
+        """)
+    
+###############################################################################
+# Erweiterter Theoriebereich: Finanzmathematische Grundlagen
+###############################################################################
+# theory_choice2 = st.sidebar.radio(
+#     "Finanzmathematische Grundlagen anzeigen?",
+#     ("Keine Anzeige", "Symbolerläuterung & Formeln")
+# )
+
+    if topic == "Symbolerläuterungen":
+        st.header("Finanzmathematische Grundlagen")
+
+        # 1) Symbolerläuterung
+        st.subheader("Symbolerläuterung")
+        st.markdown("""
+        - **BW₀**: Barwert einer Zahlung oder Zahlungsreihe (heutiger Gegenwert)
+        - **EWₙ**: Endwert einer Zahlung oder Zahlungsreihe im Zeitpunkt t = n
+        - **b**: Rentenzahlung (jährlich gleichbleibende Zahlung)
+        - **cᵗ**: Einzelne Cashflows (Zahlungen) im Zeitverlauf t = 1, 2, ..., n
+        - **i**: Kalkulationszinssatz (pro Periode, als Dezimalzahl, z. B. 0.06 für 6 %)
+        - **q** = (1 + i)
+        - **qⁿ**: Aufzinsungsfaktor
+        - **q⁻ⁿ**: Diskontierungsfaktor (= 1 / qⁿ)
+        """)
+
+        # 2) Formeln
+        st.subheader("Grundlegende Formeln")
+
+        st.markdown("**(a) Endwert einer (einmaligen) Zahlung**")
+        st.latex(r"""
+        EW_n = BW_0 \cdot (1 + i)^n
+        """)
+
+        st.markdown("**(b) Barwert einer (einmaligen) Zahlung**")
+        st.latex(r"""
+        BW_0 = \frac{EW_n}{(1 + i)^n}
+        """)
+
+        st.markdown("**(c) Endwert einer Rente (Rentenendwert)**")
+        st.markdown("Diese Formel nennt man oft den **Rentenendwertfaktor**:")
+        st.latex(r"""
+        EW_n = b \cdot \frac{(1+i)^n - 1}{i}
+        """)
+
+        st.markdown("**(d) Barwert einer Rente (Rentenbarwert)**")
+        st.markdown("Die Formel entspricht dem sog. **Rentenbarwertfaktor**:")
+        st.latex(r"""
+        BW_0 = b \cdot \frac{(1+i)^n - 1}{i \cdot (1+i)^n}
+        """)
+
+        st.info("""
+        *Hinweis:*  
+        - Eine "Rente" ist eine Zahlungsreihe mit konstanten periodischen Zahlungen b.
+        - \(i\) ist der Kalkulationszinssatz pro Periode, \(n\) die Anzahl Perioden.
+        - \((1 + i)^n\) nennt man Aufzinsungsfaktor, \((1 + i)^{-n}\) den Diskontierungsfaktor.
+        """)
+    
+
+    if topic == "Einmalige Zahlung":
+        st.subheader("Einmalige Zahlung: Barwert & Endwert")
+        st.markdown("""
+        Wenn du heute einen Betrag \\( BW_0 \\) anlegst, wächst er bis in n Perioden
+        auf den **Endwert** \\( EW_n \\) gemäß:
+
+        \\[
+            EW_n = BW_0 \\times (1 + i)^n
+        \\]
+
+        Umgekehrt, wenn du in n Perioden \\(EW_n\\) erhältst, kannst du den heutigen
+        **Barwert** \\( BW_0 \\) bestimmen:
+
+        \\[
+            BW_0 = \\frac{EW_n}{(1 + i)^n}
+        \\]
+
+        **Interpretation**:
+        - \\( i \\) ist der Zinssatz p.a. (oder p.Period)
+        - \\( n \\) ist die Anzahl Perioden (z. B. Jahre)
+        - \\( (1 + i)^n \\) heißt **Aufzinsungsfaktor**,
+          \\( (1 + i)^{-n} \\) (bzw. \\( 1/(1 + i)^n \\)) ist der **Abzinsungsfaktor**.
+        """)
+
+        st.info("""
+        **Beispielvisualisierung**: 
+        Unten ein kleines Diagramm, das zeigt, wie eine einmalige Zahlung
+        über die Jahre aufgezinst wird.
+        (Du kannst die Werte anpassen.)
+        """)
+
+        # Interaktive Felder für Demo
+        pv = st.number_input("Beispiel: Anfangsbetrag (BW_0)", value=1000.0)
+        i_demo = st.number_input("Zinssatz i (dezimal)", value=0.05)
+        n_demo = st.slider("Anzahl Perioden n", 1, 15, 5)
+
+        chart = visualize_growth_single_payment(pv, i_demo, n_demo)
+        st.altair_chart(chart, use_container_width=True)
+
+    elif topic == "Zahlungsreihe":
+        st.subheader("Zahlungsreihe: Mehrere, ggf. unterschiedliche Zahlungen")
+
+        st.markdown(r"""
+        Wenn man nicht nur **eine** Zahlung, sondern mehrere (positive wie negative)
+        über die Zeit hat, spricht man von einer **Zahlungsreihe** \(\{c_0, c_1, \dots, c_n\}\).
+
+        - **Barwert** aller Zahlungen ist die Summe der **einzelnen Barwerte**:
+
+          \[
+            BW_0 = \sum_{t=0}^{n} \frac{c_t}{(1 + i)^t}
+          \]
+
+        - **Endwert** dieser Zahlungsreihe (Zeitpunkt n) erhält man durch
+          **Aufzinsung** jeder Zahlung vom Zeitpunkt t bis n:
+
+          \[
+            EW_n = \sum_{t=0}^{n} c_t \times (1 + i)^{(n - t)}
+          \]
+
+        Damit kann man viele beliebige Cashflows (Investitions‐ und Rückflüsse)
+        bewerten und vergleichen.
+        """)
+
+        st.info("""
+        **Beispielvisualisierung**:
+        Unten eine einfache Balkengrafik, die eine Beispielreihe
+        mit einigen negativen (Auszahlungen) und positiven (Einzahlungen)
+        Cashflows zeigt.
+        """)
+
+        chart = visualize_cashflow_series_example()
+        st.altair_chart(chart, use_container_width=True)
+
+    elif topic == "Rente":
+        st.subheader("Rente: Gleichbleibende (jährliche) Zahlung b")
+
+        st.markdown(r"""
+        Eine **Rente** liegt vor, wenn es jedes Jahr (oder jede Periode)
+        **denselben** Betrag \(b\) gibt. Damit gelten einfache Formeln:
+
+        - **Endwert einer Rente** (nachschüssig gezahlte b):
+          \[
+            EW_n = b \times \frac{(1 + i)^n - 1}{i}
+          \]
+          (Manchmal heißt diese Formel auch *Rentenendwertfaktor*.)
+
+        - **Barwert einer Rente**:
+          \[
+            BW_0 = b \times \frac{(1 + i)^n - 1}{i \times (1 + i)^n}
+          \]
+          (*Rentenbarwertfaktor*.)
+
+        **Interpretation**:
+        - Du zahlst (oder erhältst) jedes Jahr b, und willst wissen,
+          wieviel das am Ende der Laufzeit n insgesamt ausmacht
+          (aufgezinst),
+        - oder welchen Wert das heute (abgezinst) hat.
+        """)
+
+        st.info("""
+        **Beispielvisualisierung**:  
+        Wir simulieren hier, wie sich eine jährliche Rente b
+        über n Jahre kumuliert, wenn jede Zahlung sofort weiterverzinst wird.
+        """)
+
+        b_demo = st.number_input("Jährliche Rate b", value=100.0)
+        i_demo = st.number_input("Zinssatz i (z.B. 0.06)", value=0.06)
+        n_demo = st.slider("Anzahl Perioden n", 1, 15, 5)
+        chart = visualize_rente_example(b_demo, i_demo, n_demo)
+        st.altair_chart(chart, use_container_width=True)
+
+    else:  # "Auf- und Abzinsung (Faktoren)"
+        st.subheader("Auf- und Abzinsung: Wichtige Faktoren")
+
+        st.markdown(r"""
+        **Aufzinsungsfaktor**:  
+        \[
+          (1 + i)^n = q^n 
+        \]
+
+        **Abzinsungsfaktor**:  
+        \[
+          \frac{1}{(1 + i)^n} = \frac{1}{q^n} = (1 + i)^{-n}
+        \]
+
+        Diese Faktoren brauchst du:
+        - Zum **Aufzinsen** (heutige Werte -> in n Jahren),
+        - Zum **Abzinsen** (Zukunftswerte -> heute).  
+        """)
+
+        st.markdown(r"""
+        **Rentenendwertfaktor**:
+        \[
+          \frac{(1 + i)^n - 1}{i}
+        \]
+        Damit berechnest du den **Endwert** einer nachschüssigen
+        Rente (Rate b).  
+
+        **Rentenbarwertfaktor**:
+        \[
+          \frac{(1 + i)^n - 1}{i \times (1 + i)^n}
+        \]
+        Damit berechnest du den **Barwert** einer nachschüssigen Rente.
+        """)
+
+        st.markdown(r"""
+        **Kapitalwiedergewinnungsfaktor**:  
+        \[
+          \frac{i \times (1 + i)^n}{(1 + i)^n - 1}
+        \]
+        Mit diesem Faktor findest du aus einem (Barwert) eine konstante
+        Rate b, die das Kapital über n Perioden "wiedergewinnt".
+        """)
+
+        st.info("""
+        Die hier genannten Faktoren sind zentrale Bausteine,
+        um **Barwert** und **Endwert** einer ganzen Reihe gleichförmiger
+        Zahlungen zu bestimmen.
+        """)
+
 
 st.markdown("---")
 st.caption("© 2025 – Ausführliche Formeln, Variablen‐Erklärungen und Visualisierungen.")
