@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import altair as alt
+import math
 
 ###############################################################################
 # Finanzmathematische Funktionen
@@ -70,6 +72,50 @@ def fv_of_cashflow_series(cashflows: list[float], i: float) -> float:
     for t, cf in enumerate(cashflows, start=1):
         fv += cf * ((1 + i)**(n - t))
     return fv
+
+
+
+def payback_period(a0: float, annual_return: float) -> float:
+    """
+    Berechnet die statische Amortisationsdauer (AD) nach der Formel:
+        AD = a0 / annual_return
+    """
+    if annual_return == 0:
+        return float("inf")
+    return a0 / annual_return
+
+def plot_payback(a0: float, annual_return: float):
+    """
+    Erstellt eine einfache Liniendiagramm-Visualisierung für die kumulierten
+    Rückflüsse bis zur Amortisation.
+
+    Wir plotten die Summen C * t über die Zeit t = 0..T, 
+    wobei T etwas größer als die berechnete AD gewählt wird,
+    damit man sieht, ab welchem Jahr a0 'eingespielt' ist.
+    """
+    ad = payback_period(a0, annual_return)
+    # runden wir auf das nächste ganze Jahr + 1 zur Sicherheit:
+    max_year = math.ceil(ad) + 1
+    
+    data = []
+    for t in range(max_year + 1):
+        cum_return = annual_return * t
+        data.append({"Jahr": t, "Kumulierte Rückflüsse": cum_return})
+
+    df = pd.DataFrame(data)
+
+    # Linie plotten
+    base_chart = alt.Chart(df).mark_line(point=True).encode(
+        x=alt.X("Jahr:Q"),
+        y=alt.Y("Kumulierte Rückflüsse:Q"),
+        tooltip=["Jahr", "Kumulierte Rückflüsse"]
+    )
+
+    # Optional: horizontale Linie für a0, um die Break-Even-Stelle zu sehen
+    rule = alt.Chart(pd.DataFrame({"y": [a0]})).mark_rule(color="red").encode(y="y")
+
+    chart = (base_chart + rule).interactive()
+    return chart
 
 
 ###############################################################################
@@ -155,7 +201,8 @@ calc_choice = st.sidebar.radio(
         "Einmalige Zahlung (Barwert / Endwert)",
         "Renten-Berechnungen (Bar- und Endwert)",
         "Rentenhöhe aus Barwert / Endwert",
-        "Zahlungsreihe (NPV / FV)"
+        "Zahlungsreihe (NPV / FV)",
+        "Amortisationsdauer (statische Methode)"
     )
 )
 
@@ -265,7 +312,7 @@ elif calc_choice == "Rentenhöhe aus Barwert / Endwert":
 ###############################################################################
 # 4. Zahlungsreihe (NPV / FV)
 ###############################################################################
-else:  # "Zahlungsreihe (NPV / FV)"
+elif calc_choice == "Zahlungsreihe (NPV / FV)":
     st.subheader("Zahlungsreihe (unregelmäßige Zahlungen) – NPV / FV")
     st.markdown("""
     Gib hier eine beliebige Reihe an jährlichen **Cashflows** ein.
@@ -299,6 +346,32 @@ else:  # "Zahlungsreihe (NPV / FV)"
             # Visualisierung: Balkendiagramm der Cashflows
             df_cf = visualize_cashflow_series(cashflows)
             st.bar_chart(df_cf)
+
+
+# ---------------------------------------------------------------
+#  5. Statische Amortisationsdauer
+# ---------------------------------------------------------------
+elif calc_choice == "Amortisationsdauer (statische Methode)":
+    st.subheader("Statische Amortisationsdauer (Payback Period)")
+
+    a0 = st.number_input("Anschaffungsausgabe a₀", value=10000.0, step=500.0)
+    c  = st.number_input("Jährlicher Rückfluss C", value=2000.0, step=500.0)
+    show_chart = st.checkbox("Grafik anzeigen?")
+
+    if st.button("Berechnen"):
+        ad = payback_period(a0, c)
+        if ad == float("inf"):
+            st.error("Amortisationsdauer = ∞ (keine Amortisation, da jährlicher Rückfluss = 0).")
+        else:
+            st.success(f"Die statische Amortisationsdauer beträgt {ad:,.2f} Jahre.")
+
+            if show_chart:
+                chart = plot_payback(a0, c)
+                st.altair_chart(chart, use_container_width=True)
+                st.info(
+                    "Die rote Linie markiert die Anfangsinvestition a₀. "
+                    "Dort, wo die blaue Kurve sie schneidet, ist das 'Break Even'-Jahr."
+                )
 
 
 st.markdown("---")
