@@ -275,6 +275,40 @@ def visualize_cashflow_series(cashflows: list[float]):
     }).set_index("Jahr")
     return df
 
+
+def npv_for_rate(a0: float, cflows: list[float], rate: float) -> float:
+    """
+    Hilfsfunktion: Kapitalwert bei Zinssatz = rate
+    """
+    npv_val = -a0
+    for t, cf in enumerate(cflows, start=1):
+        npv_val += cf / ((1 + rate)**t)
+    return npv_val
+
+def plot_capital_value_curve(a0: float, cflows: list[float], max_rate: float = 0.5, steps=100):
+    """
+    Erzeugt ein Liniendiagramm, das C0(i) für i in [0..max_rate] darstellt.
+    steps = Anzahl diskreter i-Werte.
+    
+    Der Schnittpunkt mit 0 (falls vorhanden) entspricht dem IRR.
+    """
+    data = []
+    for i in [x*(max_rate/steps) for x in range(steps+1)]:
+        c0_i = npv_for_rate(a0, cflows, i)
+        data.append({"Zinssatz i": i, "Kapitalwert": c0_i})
+
+    df = pd.DataFrame(data)
+    chart = alt.Chart(df).mark_line().encode(
+        x=alt.X("Zinssatz i:Q", title="Diskontierungszinssatz i"),
+        y=alt.Y("Kapitalwert:Q", title="Kapitalwert C₀(i)"),
+        tooltip=["Zinssatz i", "Kapitalwert"]
+    ).properties(title="Kapitalwertkurve C₀(i)")
+
+    # Optional: horizontale Linie bei Kapitalwert=0
+    rule = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(color="red").encode(y="y")
+
+    return (chart + rule).interactive()
+
 ###############################################################################
 # Erklärung der Variablennamen (für LaTeX-Ausgabe)
 ###############################################################################
@@ -723,64 +757,165 @@ elif calc_choice == "Kapitalwert":
 # 6) Interner Zinsfuß
 ###############################################################################
 
-elif calc_choice == "Interner Zinsfuß":
-        st.subheader("Interner Zinsfuß (IRR) – Vergleich mit Kapitalmarktzins")
+# elif calc_choice == "Interner Zinsfuß":
+#         st.subheader("Interner Zinsfuß (IRR) – Vergleich mit Kapitalmarktzins")
 
-        st.markdown(r"""
-        Der \textbf{interne Zinsfuß} (engl.\ IRR) ist der Zinssatz \(r\), bei dem der 
-        Kapitalwert einer Investition gleich Null wird.  
-        \[
-        0 = -a_0 + \sum_{t=1}^n \frac{c_t}{(1 + r)^t}.
-        \]
-        **Vergleich mit Kapitalmarktzins** \(i_{\mathrm{ref}}\):  
-        - Wenn \(r > i_{\mathrm{ref}}\), ist die Investition \textit{vorteilhaft}.  
-        - Wenn \(r = i_{\mathrm{ref}}\), ist man \textit{indifferent}.  
-        - Wenn \(r < i_{\mathrm{ref}}\), ist die Investition \textit{nicht vorteilhaft}.  
-        """)
+#         st.markdown(r"""
+#         Der \textbf{interne Zinsfuß} (engl.\ IRR) ist der Zinssatz \(r\), bei dem der 
+#         Kapitalwert einer Investition gleich Null wird.  
+#         \[
+#         0 = -a_0 + \sum_{t=1}^n \frac{c_t}{(1 + r)^t}.
+#         \]
+#         **Vergleich mit Kapitalmarktzins** \(i_{\mathrm{ref}}\):  
+#         - Wenn \(r > i_{\mathrm{ref}}\), ist die Investition \textit{vorteilhaft}.  
+#         - Wenn \(r = i_{\mathrm{ref}}\), ist man \textit{indifferent}.  
+#         - Wenn \(r < i_{\mathrm{ref}}\), ist die Investition \textit{nicht vorteilhaft}.  
+#         """)
 
-        # Eingaben:
-        a0_val = st.number_input("Anfangsauszahlung a₀ (positiv)", value=1000.0, step=100.0)
-        cf_str = st.text_input("Zukünftige Cashflows c₁..cₙ (Komma-getrennt)", "400,600,800")
-        i_ref  = st.number_input("Kapitalmarktzins i (Vergleichszins), z. B. 0.06 für 6%", value=0.06)
+#         # Eingaben:
+#         a0 = st.number_input("Anfangsauszahlung a₀", value=1000.0)
+#         cflows_str = st.text_input("Zukünftige Cashflows, Komma-getrennt", "400,600,800")
+#         # max_rate = st.number_input("Obergrenze für i in der Grafik (z.B. 0.50 = 50%)", value=0.50)
+#         max_rate = st.number_input("Kapitalzins", value=0.50)
+#         steps = st.slider("Anzahl Schritte in der Kurve", 10, 200, 100)
 
-        if st.button("IRR berechnen"):
-            flows = [float(x.strip()) for x in cf_str.split(",")]
+#         if st.button("IRR berechnen"):
+#             #flows = [float(x.strip()) for x in cf_str.split(",")]
+#             flows = [float(x.strip()) for x in cflows_str.split(",")]
+#             cflows = [float(x.strip()) for x in cflows_str.split(",")]
 
+#             # 1) IRR numerisch lösen
+#             irr = solve_irr(a0, flows)
 
-            # 1) IRR numerisch lösen
-            irr = solve_irr(a0_val, flows)
+#             # 2) Symbolische Darstellung
+#             rSym = sympy.Symbol("r", real=True)
+#             eq_expr = -sympy.Symbol("a_0")
+#             for t, cf in enumerate(flows, start=1):
+#                 eq_expr += sympy.Symbol(f"c_{t}", real=True) / (1 + rSym)**t
 
-            # 2) Symbolische Darstellung
-            rSym = sympy.Symbol("r", real=True)
-            eq_expr = -sympy.Symbol("a_0")
-            for t, cf in enumerate(flows, start=1):
-                eq_expr += sympy.Symbol(f"c_{t}", real=True) / (1 + rSym)**t
+#             subs_map = {sympy.Symbol("a_0"): a0}
+#             for t, cf in enumerate(flows, start=1):
+#                 subs_map[sympy.Symbol(f"c_{t}", real=True)] = cf
 
-            subs_map = {sympy.Symbol("a_0"): a0_val}
-            for t, cf in enumerate(flows, start=1):
-                subs_map[sympy.Symbol(f"c_{t}", real=True)] = cf
+#             show_sympy_formula(eq_expr, subs_map, result_label="NPV")
+#             st.write("Hier suchen wir den Zinssatz r, sodass NPV=0.")
 
-            show_sympy_formula(eq_expr, subs_map, result_label="NPV")
-            st.write("Hier suchen wir den Zinssatz r, sodass NPV=0.")
-
-            if math.isnan(irr):
-                st.error("Keine eindeutige Lösung gefunden (evtl. mehrere oder keine Nullstellen).")
-            else:
-                st.success(f"Interner Zinsfuß IRR = {irr*100:,.2f} % p.a.")
+#             if math.isnan(irr):
+#                 st.error("Keine eindeutige Lösung gefunden (evtl. mehrere oder keine Nullstellen).")
+#             else:
+#                 st.success(f"Interner Zinsfuß IRR = {irr*100:,.2f} % p.a.")
                 
-                # 3) Vergleich IRR vs i_ref
-                if abs(irr - i_ref) < 1e-7:
-                    st.info("IRR ≈ Vergleichszins → Indifferenz.")
-                elif irr > i_ref:
-                    st.success("IRR > Vergleichszins → **Investition ist vorteilhaft**.")
-                else:
-                    st.warning("IRR < Vergleichszins → **Investition nicht vorteilhaft**.")
+#             # 3) Vergleich IRR vs i_ref
+#             if abs(irr - max_rate) < 1e-7:
+#                 st.info("IRR ≈ Vergleichszins → Indifferenz.")
+#             elif irr > max_rate:
+#                 st.success("IRR > Vergleichszins → **Investition ist vorteilhaft**.")
+#             else:
+#                 st.warning("IRR < Vergleichszins → **Investition nicht vorteilhaft**.")
 
-                # 4) Visualisierung
-                chart = plot_investment_flows(a0_val, flows)
-                st.altair_chart(chart, use_container_width=True)
-                st.info("Darstellung der gesamten Zahlungsreihe: Periode 0 => -a₀, Periode 1..n => cₜ.")
+#             # 4) Visualisierung
+#             chart = plot_investment_flows(a0, flows)
+#             st.altair_chart(chart, use_container_width=True)
+#             st.info("Darstellung der gesamten Zahlungsreihe: Periode 0 => -a₀, Periode 1..n => cₜ.")
 
+#             # Plot
+#             chart = plot_capital_value_curve(a0, cflows, max_rate=max_rate, steps=steps)
+#             st.altair_chart(chart, use_container_width=True)
+
+#             st.info("""
+#             Die rote Linie markiert den Kapitalwert = 0.
+#             Dort, wo die Kurve sie schneidet (C₀(i)=0), liegt der interne Zinsfuß r.
+#             """)
+
+elif calc_choice == "Interner Zinsfuß":
+    st.subheader("Interner Zinsfuß (IRR) – Vergleich mit Kapitalmarktzins")
+
+    st.markdown(r"""
+    Der \textbf{interne Zinsfuß} (engl.\ IRR) ist der Zinssatz \(r\), bei dem der 
+    Kapitalwert einer Investition gleich Null wird.  
+    \[
+    0 = -a_0 + \sum_{t=1}^n \frac{c_t}{(1 + r)^t}.
+    \]
+    **Vergleich mit Kapitalmarktzins** \(i_{\mathrm{ref}}\):  
+    - Wenn \(r > i_{\mathrm{ref}}\), ist die Investition \textit{vorteilhaft}.  
+    - Wenn \(r = i_{\mathrm{ref}}\), ist man \textit{indifferent}.  
+    - Wenn \(r < i_{\mathrm{ref}}\), ist die Investition \textit{nicht vorteilhaft}.  
+    """)
+
+    # Eingaben:
+    a0 = st.number_input("Anfangsauszahlung a₀", value=1000.0)
+    cflows_str = st.text_input("Zukünftige Cashflows, Komma-getrennt", "400,600,800")
+
+    # Kapitalmarktzins (Referenzzinssatz) als eigener Input:
+    i_ref = st.number_input(
+        "Kapitalmarktzins i_ref (z.B. 0.05 = 5%)",
+        value=0.05,
+        min_value=0.00,
+        max_value=1.00,
+        step=0.01,
+        format="%.4f"
+    )
+
+    # Obergrenze für die Grafik separat:
+    max_plot_rate = st.number_input(
+        "Obergrenze für i in der Grafik (z.B. 0.50 = 50%)",
+        value=0.50,
+        min_value=0.00,
+        max_value=1.00,
+        step=0.05,
+        format="%.2f"
+    )
+
+    steps = st.slider("Anzahl Schritte in der Kurve", 10, 200, 100)
+
+    if st.button("IRR berechnen"):
+
+        # Zahlungsreihe (nur einmal nötig):
+        flows = [float(x.strip()) for x in cflows_str.split(",")]
+
+        # 1) IRR numerisch lösen
+        irr = solve_irr(a0, flows)  # <-- Annahme: solve_irr ist korrekt implementiert
+
+        # 2) Symbolische Darstellung:
+        rSym = sympy.Symbol("r", real=True)
+        eq_expr = -sympy.Symbol("a_0")
+        for t, cf in enumerate(flows, start=1):
+            eq_expr += sympy.Symbol(f"c_{t}", real=True) / (1 + rSym)**t
+
+        subs_map = {sympy.Symbol("a_0"): a0}
+        for t, cf in enumerate(flows, start=1):
+            subs_map[sympy.Symbol(f"c_{t}", real=True)] = cf
+
+        show_sympy_formula(eq_expr, subs_map, result_label="NPV")
+        st.write("Hier suchen wir den Zinssatz r, sodass NPV=0.")
+
+        if math.isnan(irr):
+            st.error("Keine eindeutige Lösung gefunden (evtl. mehrere oder keine Nullstellen).")
+        else:
+            st.success(f"Interner Zinsfuß IRR = {irr*100:,.2f} % p.a.")
+
+        # 3) Vergleich IRR vs i_ref
+        if math.isnan(irr):
+            pass  # Kein Vergleich möglich
+        elif abs(irr - i_ref) < 1e-7:
+            st.info("IRR ≈ Vergleichszins → Indifferenz.")
+        elif irr > i_ref:
+            st.success("IRR > Vergleichszins → **Investition ist vorteilhaft**.")
+        else:
+            st.warning("IRR < Vergleichszins → **Investition nicht vorteilhaft**.")
+
+        # 4) Visualisierung der Zahlungsreihe
+        chart = plot_investment_flows(a0, flows)
+        st.altair_chart(chart, use_container_width=True)
+        st.info("Zahlungsreihe: Periode 0 => -a₀, Periode 1..n => cₜ.")
+
+        # Kapitalwertkurve mit eigener Obergrenze
+        chart = plot_capital_value_curve(a0, flows, max_rate=max_plot_rate, steps=steps)
+        st.altair_chart(chart, use_container_width=True)
+        st.info("""
+        Die rote Linie markiert den Kapitalwert = 0.
+        Dort, wo die Kurve sie schneidet (C₀(i)=0), liegt der interne Zinsfuß r.
+        """)
 
 
 ###############################################################################
@@ -882,10 +1017,10 @@ elif calc_choice == "Theoretisches Wissen":
         """)
 
         st.info("""
-        *Hinweis:*  
-        - Eine "Rente" ist eine Zahlungsreihe mit konstanten periodischen Zahlungen b.
-        - \(i\) ist der Kalkulationszinssatz pro Periode, \(n\) die Anzahl Perioden.
-        - \((1 + i)^n\) nennt man Aufzinsungsfaktor, \((1 + i)^{-n}\) den Diskontierungsfaktor.
+            *Hinweis:*  
+            - Eine "Rente" ist eine Zahlungsreihe mit konstanten periodischen Zahlungen b.
+            - \(i\) ist der Kalkulationszinssatz pro Periode, \(n\) die Anzahl Perioden.
+            - \((1 + i)^n\) nennt man Aufzinsungsfaktor, \((1 + i)^{-n}\) den Diskontierungsfaktor.
         """)
     
 
