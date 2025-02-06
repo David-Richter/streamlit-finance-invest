@@ -3,8 +3,8 @@ import pandas as pd
 import altair as alt
 import math
 import sympy
-import numpy as np
-import matplotlib.pyplot as plt
+# import numpy as np
+# import matplotlib.pyplot as plt
 
 
 ###############################################################################
@@ -451,15 +451,15 @@ def show_sympy_formula(
 ###############################################################################
 # Streamlit-App
 ###############################################################################
-st.title("Finanzmathematische Berechnungen mit Sympy-Formel‐Darstellung")
+# st.title("Finanzmathematische Berechnungen mit Sympy-Formel‐Darstellung")
 
-st.markdown("""
-Willkommen zu dieser **App**, die finanzmathematische Grundlagen
-(z. B. Barwert, Endwert, Rente, NPV) berechnet **und** den Rechenweg in
-anschaulichen **Sympy/LaTeX‐Formeln** darstellt.
-Außerdem werden alle Variablen kurz erklärt und die konkreten Zahlen
-in die Formel eingesetzt, **noch vor** dem endgültigen Ergebnis.
-""")
+# st.markdown("""
+# Willkommen zu dieser **App**, die finanzmathematische Grundlagen
+# (z. B. Barwert, Endwert, Rente, NPV) berechnet **und** den Rechenweg in
+# anschaulichen **Sympy/LaTeX‐Formeln** darstellt.
+# Außerdem werden alle Variablen kurz erklärt und die konkreten Zahlen
+# in die Formel eingesetzt, **noch vor** dem endgültigen Ergebnis.
+# """)
 
 calc_choice = st.sidebar.radio(
     "Bitte wähle eine Berechnungsart:",
